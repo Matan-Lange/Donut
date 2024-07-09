@@ -2,7 +2,7 @@
 
 
 ## HE - SynthDog
-HE-Synthdag is a modified version of the original Synthdog framework, 
+HE-Synthdog is a modified version of the original Synthdog framework, 
 specifically tailored to generate syntactic documents in Hebrew. 
 This project includes minor changes to the original Synthdog to support the Hebrew language, enabling the creation of documents with Hebrew text.<br>
 
