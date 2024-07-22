@@ -57,7 +57,6 @@ class TextBox:
             return None, None
 
         text_layer = layers.Group(char_layers).merge()
-        print(text_layer)
-        print(text)
+
 
         return text_layer, text
