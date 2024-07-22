@@ -6,6 +6,10 @@ HE-Synthdog is a modified version of the original Synthdog framework,
 specifically tailored to generate syntactic documents in Hebrew. 
 This project includes minor changes to the original Synthdog to support the Hebrew language, enabling the creation of documents with Hebrew text.<br>
 
+dependencies:
+python-bidi==0.4.2
+install numpy==1.26.0
+
 Usage:
 1. ```pip install synthtiger```
 2. Add your custom Hebrew corpus to the following path: synthdog/resources/corpus
