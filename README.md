@@ -8,7 +8,7 @@ This project includes minor changes to the original Synthdog to support the Hebr
 
 dependencies:<br>
 python-bidi==0.4.2<br>
-numpy==1.26.0
+numpy==1.26.0<br>
 pillow==9.4.0
 
 Usage:
