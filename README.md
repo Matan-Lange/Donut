@@ -9,6 +9,7 @@ This project includes minor changes to the original Synthdog to support the Hebr
 dependencies:<br>
 python-bidi==0.4.2<br>
 numpy==1.26.0
+pillow==9.4.0
 
 Usage:
 1. ```pip install synthtiger```
