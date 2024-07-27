@@ -1,30 +1,36 @@
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, DistributedSampler
 import mlflow
 from nltk import edit_distance
 import numpy as np
 import re
+import os
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 
-class DonutModel(torch.nn.Module):
-    def __init__(self, model):
-        super(DonutModel, self).__init__()
-        self.model = model
-
-    def forward(self, pixel_values, labels=None):
-        return self.model(pixel_values, labels=labels)
-
-
-class Trainer:
-    def __init__(self, config, processor, model, train_dataloader, val_dataloader=None):
+class TrainerDDP:
+    def __init__(self, config, processor, model, train_dataloader, val_dataloader=None, rank=0, world_size=1):
         self.config = config
         self.processor = processor
-        self.model = DonutModel(model)
+        self.model = model
         self.train_dataloader = train_dataloader
-        self.val_dataloader = val_dataloader
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.val_dataloader = iter(val_dataloader)
+        self.device = torch.device(f"cuda:{rank}" if torch.cuda.is_available() else "cpu")
         self.model.to(self.device)
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.config.get("lr", 1e-4))
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.config.get("lr", 3e-5))
+        self.scaler = torch.cuda.amp.GradScaler()
+        self.global_step = 0
+        self.rank = rank
+        self.world_size = world_size
+        self.gradient_clip_val = config.get("gradient_clip_val", 1.0)
+
+        if self.world_size > 1:
+            self.model = DDP(self.model, device_ids=[self.rank])
+
+        mlflow.set_tracking_uri(config.get("mlflow_tracking_uri", "http://bi-mlmain2-dev:8002/"))
+        experiment_name = config.get("experiment_name", "43")
+        mlflow.set_experiment(experiment_name)
 
     def train_step(self, batch):
         self.model.train()
@@ -32,13 +38,24 @@ class Trainer:
         pixel_values, labels = pixel_values.to(self.device), labels.to(self.device)
 
         self.optimizer.zero_grad()
-        outputs = self.model(pixel_values, labels=labels)
-        loss = outputs.loss
-        loss.backward()
-        self.optimizer.step()
 
-        mlflow.log_metric("train_loss", loss.item())
-        print(f"train loss: {loss.item()}")
+        with torch.cuda.amp.autocast():
+            outputs = self.model(pixel_values, labels=labels)
+            loss = outputs.loss
+
+        self.scaler.scale(loss).backward()
+
+        # Apply gradient clipping
+        self.scaler.unscale_(self.optimizer)
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.gradient_clip_val)
+
+        self.scaler.step(self.optimizer)
+        self.scaler.update()
+
+        self.global_step += 1
+        if self.rank == 0:
+            mlflow.log_metric("train_loss", loss.item(), step=self.global_step)
+            print(f"train loss: {loss.item()} at step {self.global_step}")
 
         return loss.item()
 
@@ -48,19 +65,21 @@ class Trainer:
         pixel_values, labels = pixel_values.to(self.device), labels.to(self.device)
 
         batch_size = pixel_values.shape[0]
-        decoder_input_ids = torch.full((batch_size, 1), self.model.model.config.decoder_start_token_id,
+        # In PyTorch DDP setup, self.model is wrapped by DistributedDataParallel,
+        # so the actual model is accessible through self.model.module.
+        decoder_input_ids = torch.full((batch_size, 1), self.model.module.config.decoder_start_token_id,
                                        device=self.device)
 
-        outputs = self.model.model.generate(pixel_values,
-                                            decoder_input_ids=decoder_input_ids,
-                                            max_length=self.config.get("max_length", 768),
-                                            early_stopping=True,
-                                            pad_token_id=self.processor.tokenizer.pad_token_id,
-                                            eos_token_id=self.processor.tokenizer.eos_token_id,
-                                            use_cache=True,
-                                            num_beams=1,
-                                            bad_words_ids=[[self.processor.tokenizer.unk_token_id]],
-                                            return_dict_in_generate=True)
+        outputs = self.model.module.generate(pixel_values,
+                                             decoder_input_ids=decoder_input_ids,
+                                             max_length=self.config.get("max_length", 768),
+                                             early_stopping=True,
+                                             pad_token_id=self.processor.tokenizer.pad_token_id,
+                                             eos_token_id=self.processor.tokenizer.eos_token_id,
+                                             use_cache=True,
+                                             num_beams=1,
+                                             bad_words_ids=[[self.processor.tokenizer.unk_token_id]],
+                                             return_dict_in_generate=True)
 
         predictions = []
         for seq in self.processor.tokenizer.batch_decode(outputs.sequences):
@@ -71,39 +90,102 @@ class Trainer:
         scores = []
         for pred, answer in zip(predictions, answers):
             answer = answer.replace(self.processor.tokenizer.eos_token, "")
-            scores.append(edit_distance(pred, answer) / max(len(pred), len(answer)))
+            score = edit_distance(pred, answer) / max(len(pred), len(answer))
+            scores.append(score)
 
-            if self.config.get("verbose", False) and len(scores) == 1:
-                print(f"Prediction: {predictions}")
+            if self.config.get("verbose", False) and self.rank == 0:
+                print(f"Prediction: {pred}")
                 print(f"    Answer: {answer}")
-                print(f" Normed ED: {scores[0]}")
+                print(f" Normed ED: {score}")
 
         avg_score = np.mean(scores)
-        mlflow.log_metric("val_edit_distance", avg_score)
+        if self.rank == 0:
+            mlflow.log_metric("val_edit_distance", avg_score, step=self.global_step)
 
         return avg_score
 
-    def train(self, epochs, validate_after_each_step=False):
+    def train(self, epochs):
         for epoch in range(epochs):
             train_losses = []
             for batch in self.train_dataloader:
                 train_loss = self.train_step(batch)
                 train_losses.append(train_loss)
 
-                if validate_after_each_step and self.val_dataloader:
-                    val_batch = next(iter(self.val_dataloader))
-                    self.validation_step(val_batch)
+                # Perform validation every 100 steps
+                if self.global_step % 100 == 0 and self.val_dataloader:
+                    val_batch = next(self.val_dataloader)
+                    val_score = self.validation_step(val_batch)
 
-            if not validate_after_each_step and self.val_dataloader:
-                val_scores = []
-                for batch in self.val_dataloader:
-                    val_score = self.validation_step(batch)
-                    val_scores.append(val_score)
-                avg_val_score = np.mean(val_scores)
-                print(f"Epoch {epoch + 1}, Validation Edit Distance: {avg_val_score}")
 
             avg_train_loss = np.mean(train_losses)
-            print(f"Epoch {epoch + 1}, Train Loss: {avg_train_loss}")
+            if self.rank == 0:
+                print(f"Epoch {epoch + 1}, Train Loss: {avg_train_loss}")
+                self.save_model(f'donut_model{epoch}.pt')
+
+    def save_model(self, path):
+        torch.save(self.model.state_dict(), path)
 
 
+def setup(rank, world_size):
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+    torch.cuda.set_device(rank)
 
+
+def cleanup():
+    dist.destroy_process_group()
+
+
+from dataset import DonutDataset
+from model import load_base_model
+
+
+def main(rank, world_size):
+    setup(rank, world_size)
+    processor, model = load_base_model()
+
+    data_path = r'/data/01/users/lange_m_new/projects/Donut-main/Donut-main/synthdog/outputs/SynthDoG_he'
+    train_dataset = DonutDataset(os.path.join(data_path, 'train'), max_length=768, processor=processor)
+
+    val_dataset = DonutDataset(os.path.join(data_path, 'validation'), max_length=768, processor=processor)
+
+    train_sampler = DistributedSampler(train_dataset, num_replicas=world_size, rank=rank)
+    train_dataloader = DataLoader(train_dataset, batch_size=4, sampler=train_sampler)
+
+    val_sampler = DistributedSampler(val_dataset, num_replicas=world_size, rank=rank)
+    val_dataloader = DataLoader(val_dataset, batch_size=4, sampler=val_sampler)
+
+    config = {
+        "lr": 3e-5,
+        "verbose": True,
+        "gradient_clip_val": 1.0
+    }
+
+    trainer = TrainerDDP(config, processor, model, train_dataloader, val_dataloader, rank, world_size)
+    trainer.train(3)
+
+    cleanup()
+
+
+if __name__ == "__main__":
+
+    import argparse
+    from transformers import DonutProcessor, VisionEncoderDecoderModel
+    import torch.multiprocessing as mp
+
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("--train_dataloader", type=str, required=True)
+    # parser.add_argument("--val_dataloader", type=str, default=None)
+    # parser.add_argument("--lr", type=float, default=1e-4)
+    # parser.add_argument("--epochs", type=int, default=10)
+    # parser.add_argument("--batch_size", type=int, default=8)
+    # parser.add_argument("--validate_after_each_step", type=bool, default=False)
+    # parser.add_argument("--world_size", type=int, default=1)
+    # parser.add_argument("--gradient_clip_val", type=float, default=1.0)
+    # args = parser.parse_args()
+    world_size = 2
+    if world_size > 1:
+        mp.spawn(main, args=(world_size,), nprocs=world_size, join=True)
+    else:
+        main(0, world_size)
