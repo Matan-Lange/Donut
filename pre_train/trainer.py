@@ -1,55 +1,75 @@
-import re
+import torch
+from torch.utils.data import DataLoader
+import mlflow
 from nltk import edit_distance
 import numpy as np
-import torch
-import pytorch_lightning as pl
-from pytorch_lightning.utilities import rank_zero_only
+import re
 
 
-class DonutModelPLModule(pl.LightningModule):
-    def __init__(self, config, processor, model, train_dataloader, val_dataloader, max_length):
-        super().__init__()
+class DonutModel(torch.nn.Module):
+    def __init__(self, model):
+        super(DonutModel, self).__init__()
+        self.model = model
+
+    def forward(self, pixel_values, labels=None):
+        return self.model(pixel_values, labels=labels)
+
+
+class Trainer:
+    def __init__(self, config, processor, model, train_dataloader, val_dataloader=None):
         self.config = config
         self.processor = processor
-        self.model = model
+        self.model = DonutModel(model)
         self.train_dataloader = train_dataloader
         self.val_dataloader = val_dataloader
-        self.max_length = max_length
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.config.get("lr", 1e-4))
 
-    def training_step(self, batch, batch_idx):
+    def train_step(self, batch):
+        self.model.train()
         pixel_values, labels, _ = batch
+        pixel_values, labels = pixel_values.to(self.device), labels.to(self.device)
 
+        self.optimizer.zero_grad()
         outputs = self.model(pixel_values, labels=labels)
         loss = outputs.loss
-        print(f"train loss: {loss}")
-        return loss
+        loss.backward()
+        self.optimizer.step()
 
-    def validation_step(self, batch, batch_idx, dataset_idx=0):
+        mlflow.log_metric("train_loss", loss.item())
+        print(f"train loss: {loss.item()}")
+
+        return loss.item()
+
+    def validation_step(self, batch):
+        self.model.eval()
         pixel_values, labels, answers = batch
-        batch_size = pixel_values.shape[0]
-        # we feed the prompt to the model
-        decoder_input_ids = torch.full((batch_size, 1), self.model.config.decoder_start_token_id, device=self.device)
+        pixel_values, labels = pixel_values.to(self.device), labels.to(self.device)
 
-        outputs = self.model.generate(pixel_values,
-                                      decoder_input_ids=decoder_input_ids,
-                                      max_length=self.max_length,
-                                      early_stopping=True,
-                                      pad_token_id=self.processor.tokenizer.pad_token_id,
-                                      eos_token_id=self.processor.tokenizer.eos_token_id,
-                                      use_cache=True,
-                                      num_beams=1,
-                                      bad_words_ids=[[self.processor.tokenizer.unk_token_id]],
-                                      return_dict_in_generate=True, )
+        batch_size = pixel_values.shape[0]
+        decoder_input_ids = torch.full((batch_size, 1), self.model.model.config.decoder_start_token_id,
+                                       device=self.device)
+
+        outputs = self.model.model.generate(pixel_values,
+                                            decoder_input_ids=decoder_input_ids,
+                                            max_length=self.config.get("max_length", 768),
+                                            early_stopping=True,
+                                            pad_token_id=self.processor.tokenizer.pad_token_id,
+                                            eos_token_id=self.processor.tokenizer.eos_token_id,
+                                            use_cache=True,
+                                            num_beams=1,
+                                            bad_words_ids=[[self.processor.tokenizer.unk_token_id]],
+                                            return_dict_in_generate=True)
 
         predictions = []
         for seq in self.processor.tokenizer.batch_decode(outputs.sequences):
             seq = seq.replace(self.processor.tokenizer.eos_token, "").replace(self.processor.tokenizer.pad_token, "")
-            seq = re.sub(r"<.*?>", "", seq, count=1).strip()  # remove first task start token
+            seq = re.sub(r"<.*?>", "", seq, count=1).strip()
             predictions.append(seq)
 
         scores = []
         for pred, answer in zip(predictions, answers):
-            # pred = re.sub(r"(?:(?<=>) | (?=))", "", answer, count=1)
             answer = answer.replace(self.processor.tokenizer.eos_token, "")
             scores.append(edit_distance(pred, answer) / max(len(pred), len(answer)))
 
@@ -58,18 +78,32 @@ class DonutModelPLModule(pl.LightningModule):
                 print(f"    Answer: {answer}")
                 print(f" Normed ED: {scores[0]}")
 
-        self.log("val_edit_distance", np.mean(scores))
+        avg_score = np.mean(scores)
+        mlflow.log_metric("val_edit_distance", avg_score)
 
-        return scores
+        return avg_score
 
-    def configure_optimizers(self):
-        # you could also add a learning rate scheduler if you want
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.config.get("lr"))
+    def train(self, epochs, validate_after_each_step=False):
+        for epoch in range(epochs):
+            train_losses = []
+            for batch in self.train_dataloader:
+                train_loss = self.train_step(batch)
+                train_losses.append(train_loss)
 
-        return optimizer
+                if validate_after_each_step and self.val_dataloader:
+                    val_batch = next(iter(self.val_dataloader))
+                    self.validation_step(val_batch)
 
-    def train_dataloader(self):
-        return self.train_dataloader
+            if not validate_after_each_step and self.val_dataloader:
+                val_scores = []
+                for batch in self.val_dataloader:
+                    val_score = self.validation_step(batch)
+                    val_scores.append(val_score)
+                avg_val_score = np.mean(val_scores)
+                print(f"Epoch {epoch + 1}, Validation Edit Distance: {avg_val_score}")
 
-    def val_dataloader(self):
-        return self.val_dataloader
+            avg_train_loss = np.mean(train_losses)
+            print(f"Epoch {epoch + 1}, Train Loss: {avg_train_loss}")
+
+
+
