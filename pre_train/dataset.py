@@ -41,7 +41,7 @@ class DonutDataset(Dataset):
     def load_dataset(self, dataset_name_or_path):
         dataset = []
         #may need to add encoding='utf-8' for hebrew
-        with open(os.path.join(dataset_name_or_path, 'metadata.jsonl'), 'r') as file:
+        with open(os.path.join(dataset_name_or_path, 'metadata.jsonl'), 'r',encoding='utf-8') as file:
             for line in file:
                 data_point = json.loads(line)
                 img_path = os.path.join(dataset_name_or_path, data_point['file_name'])
