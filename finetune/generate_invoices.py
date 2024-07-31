@@ -9,8 +9,19 @@ from datetime import datetime
 # Initialize Faker with Hebrew locale
 fake = Faker('he_IL')
 
+import re
+
+
+def reverse_numbers_in_string(text):
+    def reverse_match(match):
+        return match.group(0)[::-1]
+
+    return re.sub(r'\d+', reverse_match, text)
+
+
 def reverse_hebrew_text(text):
-    return text[::-1]
+    return reverse_numbers_in_string(text[::-1])
+
 
 def load_fonts():
     try:
@@ -23,8 +34,10 @@ def load_fonts():
         italic_font = font
     return font, bold_font, italic_font
 
+
 class Invoice:
-    def __init__(self, invoice_number, date, client_name, client_address, supplier_name, supplier_address, payment_terms, vat_percentage, additional_notes, items):
+    def __init__(self, invoice_number, date, client_name, client_address, supplier_name, supplier_address,
+                 payment_terms, vat_percentage, additional_notes, items):
         self.invoice_number = invoice_number
         self.date = date
         self.client_name = client_name
@@ -81,10 +94,12 @@ class Invoice:
     def draw_table_headers(self, draw, width, current_height, padding):
         headers = ["פריט", "כמות", "מחיר יחידה", "סה\"כ"]
         header_positions = [width - padding - 150 * i for i in range(len(headers))]
-        draw.rectangle([(padding, current_height), (width - padding, current_height + self.font.getbbox("hg")[3] + 10)], outline="black")
+        draw.rectangle([(padding, current_height), (width - padding, current_height + self.font.getbbox("hg")[3] + 10)],
+                       outline="black")
         for i, header in enumerate(headers):
             reversed_header = reverse_hebrew_text(header)
-            draw.text((header_positions[i], current_height + 5), reversed_header, fill="black", font=self.bold_font, anchor="ra")
+            draw.text((header_positions[i], current_height + 5), reversed_header, fill="black", font=self.bold_font,
+                      anchor="ra")
         current_height += self.font.getbbox("hg")[3] + 20
         return current_height, header_positions
 
@@ -97,9 +112,12 @@ class Invoice:
             fields = [item_name, item[1], f"{item[2]:.2f}", f"{item[3]:.2f}"]
             item_data = {"name": item[0], "quantity": item[1], "price": item[2], "total": item[3]}
             items_data.append(item_data)
-            draw.rectangle([(padding, current_height), (width - padding, current_height + self.font.getbbox("hg")[3] + 10)], outline="black")
+            draw.rectangle(
+                [(padding, current_height), (width - padding, current_height + self.font.getbbox("hg")[3] + 10)],
+                outline="black")
             for i, field in enumerate(fields):
-                draw.text((header_positions[i], current_height + 5), str(field), fill="black", font=self.font, anchor="ra")
+                draw.text((header_positions[i], current_height + 5), str(field), fill="black", font=self.font,
+                          anchor="ra")
             current_height += self.font.getbbox("hg")[3] + 20
 
         current_height += padding // 2
@@ -125,7 +143,8 @@ class Invoice:
         draw.text((width - padding, current_height), notes_title, fill="black", font=self.bold_font, anchor="ra")
         current_height += self.font.getbbox("hg")[3] + 10
         additional_notes_reversed = reverse_hebrew_text(self.additional_notes)
-        draw.text((width - padding, current_height), additional_notes_reversed, fill="black", font=self.italic_font, anchor="ra")
+        draw.text((width - padding, current_height), additional_notes_reversed, fill="black", font=self.italic_font,
+                  anchor="ra")
         current_height += self.font.getbbox("hg")[3] + padding
         return current_height
 
@@ -143,7 +162,8 @@ class Invoice:
         current_height = self.draw_client_supplier_info(draw, width, current_height, padding)
         current_height = self.draw_payment_terms(draw, width, current_height, padding)
         current_height, header_positions = self.draw_table_headers(draw, width, current_height, padding)
-        current_height, total_amount, items_data = self.draw_items(draw, width, current_height, padding, header_positions)
+        current_height, total_amount, items_data = self.draw_items(draw, width, current_height, padding,
+                                                                   header_positions)
         current_height = self.draw_totals(draw, width, current_height, padding, total_amount)
         current_height = self.draw_additional_notes(draw, width, current_height, padding)
         self.draw_footer(draw, width, current_height, padding)
@@ -152,6 +172,7 @@ class Invoice:
         file_path = os.path.join(directory, file_name)
         image.save(file_path)
         return file_path
+
 
 class Layout1(Invoice):
     def draw_header(self, draw, width, current_height, padding):
@@ -178,8 +199,10 @@ class Layout1(Invoice):
         footer_bbox = draw.textbbox((0, 0), footer_text, font=self.italic_font)
         footer_width = footer_bbox[2] - footer_bbox[0]
         draw.rectangle([(0, current_height), (width, current_height + padding * 2)], fill="lightblue")
-        draw.text(((width - footer_width) / 2, current_height + padding), footer_text, fill="darkblue", font=self.italic_font)
+        draw.text(((width - footer_width) / 2, current_height + padding), footer_text, fill="darkblue",
+                  font=self.italic_font)
         return current_height + padding * 2
+
 
 class Layout2(Invoice):
     def draw_header(self, draw, width, current_height, padding):
@@ -206,8 +229,10 @@ class Layout2(Invoice):
         footer_bbox = draw.textbbox((0, 0), footer_text, font=self.italic_font)
         footer_width = footer_bbox[2] - footer_bbox[0]
         draw.rectangle([(0, current_height), (width, current_height + padding * 2)], fill="lightgreen")
-        draw.text(((width - footer_width) / 2, current_height + padding), footer_text, fill="darkgreen", font=self.italic_font)
+        draw.text(((width - footer_width) / 2, current_height + padding), footer_text, fill="darkgreen",
+                  font=self.italic_font)
         return current_height + padding * 2
+
 
 class Layout3(Invoice):
     def draw_header(self, draw, width, current_height, padding):
@@ -234,8 +259,10 @@ class Layout3(Invoice):
         footer_bbox = draw.textbbox((0, 0), footer_text, font=self.italic_font)
         footer_width = footer_bbox[2] - footer_bbox[0]
         draw.rectangle([(0, current_height), (width, current_height + padding * 2)], fill="lightcoral")
-        draw.text(((width - footer_width) / 2, current_height + padding), footer_text, fill="darkred", font=self.italic_font)
+        draw.text(((width - footer_width) / 2, current_height + padding), footer_text, fill="darkred",
+                  font=self.italic_font)
         return current_height + padding * 2
+
 
 class Layout4(Invoice):
     def draw_header(self, draw, width, current_height, padding):
@@ -262,8 +289,10 @@ class Layout4(Invoice):
         footer_bbox = draw.textbbox((0, 0), footer_text, font=self.italic_font)
         footer_width = footer_bbox[2] - footer_bbox[0]
         draw.rectangle([(0, current_height), (width, current_height + padding * 2)], fill="lightyellow")
-        draw.text(((width - footer_width) / 2, current_height + padding), footer_text, fill="darkgoldenrod", font=self.italic_font)
+        draw.text(((width - footer_width) / 2, current_height + padding), footer_text, fill="darkgoldenrod",
+                  font=self.italic_font)
         return current_height + padding * 2
+
 
 class Layout5(Invoice):
     def draw_header(self, draw, width, current_height, padding):
@@ -290,8 +319,10 @@ class Layout5(Invoice):
         footer_bbox = draw.textbbox((0, 0), footer_text, font=self.italic_font)
         footer_width = footer_bbox[2] - footer_bbox[0]
         draw.rectangle([(0, current_height), (width, current_height + padding * 2)], fill="lightpink")
-        draw.text(((width - footer_width) / 2, current_height + padding), footer_text, fill="deeppink", font=self.italic_font)
+        draw.text(((width - footer_width) / 2, current_height + padding), footer_text, fill="deeppink",
+                  font=self.italic_font)
         return current_height + padding * 2
+
 
 class Layout6(Invoice):
     def draw_header(self, draw, width, current_height, padding):
@@ -318,8 +349,10 @@ class Layout6(Invoice):
         footer_bbox = draw.textbbox((0, 0), footer_text, font=self.italic_font)
         footer_width = footer_bbox[2] - footer_bbox[0]
         draw.rectangle([(0, current_height), (width, current_height + padding * 2)], fill="lightcyan")
-        draw.text(((width - footer_width) / 2, current_height + padding), footer_text, fill="darkcyan", font=self.italic_font)
+        draw.text(((width - footer_width) / 2, current_height + padding), footer_text, fill="darkcyan",
+                  font=self.italic_font)
         return current_height + padding * 2
+
 
 class Layout7(Invoice):
     def draw_header(self, draw, width, current_height, padding):
@@ -346,8 +379,10 @@ class Layout7(Invoice):
         footer_bbox = draw.textbbox((0, 0), footer_text, font=self.italic_font)
         footer_width = footer_bbox[2] - footer_bbox[0]
         draw.rectangle([(0, current_height), (width, current_height + padding * 2)], fill="lightsteelblue")
-        draw.text(((width - footer_width) / 2, current_height + padding), footer_text, fill="darkslateblue", font=self.italic_font)
+        draw.text(((width - footer_width) / 2, current_height + padding), footer_text, fill="darkslateblue",
+                  font=self.italic_font)
         return current_height + padding * 2
+
 
 class Layout8(Invoice):
     def draw_header(self, draw, width, current_height, padding):
@@ -374,8 +409,10 @@ class Layout8(Invoice):
         footer_bbox = draw.textbbox((0, 0), footer_text, font=self.italic_font)
         footer_width = footer_bbox[2] - footer_bbox[0]
         draw.rectangle([(0, current_height), (width, current_height + padding * 2)], fill="lightseagreen")
-        draw.text(((width - footer_width) / 2, current_height + padding), footer_text, fill="darkseagreen", font=self.italic_font)
+        draw.text(((width - footer_width) / 2, current_height + padding), footer_text, fill="darkseagreen",
+                  font=self.italic_font)
         return current_height + padding * 2
+
 
 class Layout9(Invoice):
     def draw_header(self, draw, width, current_height, padding):
@@ -402,8 +439,10 @@ class Layout9(Invoice):
         footer_bbox = draw.textbbox((0, 0), footer_text, font=self.italic_font)
         footer_width = footer_bbox[2] - footer_bbox[0]
         draw.rectangle([(0, current_height), (width, current_height + padding * 2)], fill="lightgoldenrodyellow")
-        draw.text(((width - footer_width) / 2, current_height + padding), footer_text, fill="darkgoldenrod", font=self.italic_font)
+        draw.text(((width - footer_width) / 2, current_height + padding), footer_text, fill="darkgoldenrod",
+                  font=self.italic_font)
         return current_height + padding * 2
+
 
 class Layout10(Invoice):
     def draw_header(self, draw, width, current_height, padding):
@@ -430,8 +469,10 @@ class Layout10(Invoice):
         footer_bbox = draw.textbbox((0, 0), footer_text, font=self.italic_font)
         footer_width = footer_bbox[2] - footer_bbox[0]
         draw.rectangle([(0, current_height), (width, current_height + padding * 2)], fill="lightgrey")
-        draw.text(((width - footer_width) / 2, current_height + padding), footer_text, fill="black", font=self.italic_font)
+        draw.text(((width - footer_width) / 2, current_height + padding), footer_text, fill="black",
+                  font=self.italic_font)
         return current_height + padding * 2
+
 
 class InvoiceGenerator:
     def __init__(self, total_invoices, output_directory="invoices"):
@@ -490,7 +531,8 @@ class InvoiceGenerator:
                     invoice_number = self.generate_unique_invoice_number()
                     date = datetime.now().strftime('%d/%m/%Y')
                     layout_class = random.choice(layouts)
-                    invoice = layout_class(invoice_number, date, client_name, client_address, supplier_name, supplier_address, payment_terms, vat_percentage, additional_notes, items)
+                    invoice = layout_class(invoice_number, date, client_name, client_address, supplier_name,
+                                           supplier_address, payment_terms, vat_percentage, additional_notes, items)
                     file_name = f"fake_hebrew_invoice_{invoice_number}.png"
                     image_path = invoice.save_image(os.path.join(self.output_directory, split_name), file_name)
                     parsing_data = {
@@ -505,16 +547,19 @@ class InvoiceGenerator:
                             "name": supplier_name,
                             "address": supplier_address
                         },
-                        "items": [{"name": item[0], "quantity": item[1], "price": item[2], "total": item[3]} for item in items],
+                        "items": [{"name": item[0], "quantity": item[1], "price": item[2], "total": item[3]} for item in
+                                  items],
                         "total_sum": invoice.total_with_vat
                     }
                     meta_file.write(json.dumps(parsing_data, ensure_ascii=False) + "\n")
             print(f"Metadata saved in {metadata_file}")
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate Hebrew invoices dataset")
     parser.add_argument("--total_invoices", type=int, required=True, help="Total number of invoices to generate")
-    parser.add_argument("--output_directory", type=str, default="invoices", help="Output directory to save invoices and metadata")
+    parser.add_argument("--output_directory", type=str, default="invoices",
+                        help="Output directory to save invoices and metadata")
 
     args = parser.parse_args()
     generator = InvoiceGenerator(args.total_invoices, args.output_directory)
