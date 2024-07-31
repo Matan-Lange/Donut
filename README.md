@@ -1,4 +1,4 @@
-# HE-Dount
+# HeDonut
 
 
 ## HE - SynthDog
@@ -20,4 +20,17 @@ Usage:
 
 For more detailed usage instructions and examples, please refer to the original synthtiger paper+code
 https://github.com/clovaai/synthtiger/blob/master/README.md
+
+## Pre-Training HeDonut 
+
+
+
+## FineTuning document parsing 
+<b>snythtic invoice generation</b><br>
+run ```python finetune/generate_invoices.py --total_invoices 1000 --output_directory path/to/dir```
+
+
+
+
+
 
