@@ -26,6 +26,8 @@ https://github.com/clovaai/synthtiger/blob/master/README.md
 
 
 ## FineTuning document parsing 
+<b>snythtic invoice generation</b><br>
+run ```python finetune/generate_invoices.py --total_invoices 1000 --output_directory path/to/dir```
 
 
 
