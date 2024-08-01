@@ -113,7 +113,7 @@ class SynthDoG(templates.Template):
 
     def format_metadata(self, image_filename: str, keys: List[str], values: List[Any]):
         """
-        Fit gt_parse contents to huggingface dataset's format
+        Fit gt_parse contents to huggingface data's format
         keys and values, whose lengths are equal, are used to constrcut 'gt_parse' field in 'ground_truth' field
         Args:
             keys: List of task_name

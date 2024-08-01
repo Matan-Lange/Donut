@@ -556,7 +556,7 @@ class InvoiceGenerator:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generate Hebrew invoices dataset")
+    parser = argparse.ArgumentParser(description="Generate Hebrew invoices data")
     parser.add_argument("--total_invoices", type=int, required=True, help="Total number of invoices to generate")
     parser.add_argument("--output_directory", type=str, default="invoices",
                         help="Output directory to save invoices and metadata")
