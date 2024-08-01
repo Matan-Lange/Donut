@@ -18,13 +18,3 @@ def load_he_model(repo_name, hf_token):
     return processor, model
 
 
-from huggingface_hub import HfApi, HfFolder
-
-# Get the Hugging Face API token
-api = HfApi()
-token = HfFolder.get_token()
-repo_name = "jjjlangem/He-Donut"
-processor, model = load_he_model(repo_name, token)
-
-print(model)
-print(processor.tokenizer)
