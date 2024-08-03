@@ -28,8 +28,8 @@ class TrainerDDP:
         if self.world_size > 1:
             self.model = DDP(self.model, device_ids=[self.rank])
 
-        mlflow.set_tracking_uri(config.get("mlflow_tracking_uri", "http://bi-mlmain2-dev:8002/"))
-        experiment_name = config.get("experiment_name", "43")
+        mlflow.set_tracking_uri(config.get("mlflow_tracking_uri"))
+        experiment_name = config.get("experiment_name")
         mlflow.set_experiment(experiment_name)
 
     def train_step(self, batch):
@@ -141,14 +141,13 @@ from dataset import DonutDataset
 from model import load_base_model
 
 
-def main(rank, world_size):
+def main(rank, world_size,data_set_path):
     setup(rank, world_size)
     processor, model = load_base_model()
 
-    data_path = r'/data/01/users/lange_m_new/projects/Donut-main/Donut-main/synthdog/outputs/SynthDoG_he'
-    train_dataset = DonutDataset(os.path.join(data_path, 'train'), max_length=768, processor=processor)
+    train_dataset = DonutDataset(os.path.join(data_set_path, 'train'), max_length=768, processor=processor)
 
-    val_dataset = DonutDataset(os.path.join(data_path, 'validation'), max_length=768, processor=processor)
+    val_dataset = DonutDataset(os.path.join(data_set_path, 'validation'), max_length=768, processor=processor)
 
     train_sampler = DistributedSampler(train_dataset, num_replicas=world_size, rank=rank)
     train_dataloader = DataLoader(train_dataset, batch_size=4, sampler=train_sampler)
@@ -159,7 +158,9 @@ def main(rank, world_size):
     config = {
         "lr": 3e-5,
         "verbose": True,
-        "gradient_clip_val": 1.0
+        "gradient_clip_val": 1.0,
+        'experiment_name': 'pretrain_donut',
+        "mlflow_tracking_uri": 'sqlite:///mlflow.db'  # add tracking uri here
     }
 
     trainer = TrainerDDP(config, processor, model, train_dataloader, val_dataloader, rank, world_size)
@@ -174,16 +175,7 @@ if __name__ == "__main__":
     from transformers import DonutProcessor, VisionEncoderDecoderModel
     import torch.multiprocessing as mp
 
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("--train_dataloader", type=str, required=True)
-    # parser.add_argument("--val_dataloader", type=str, default=None)
-    # parser.add_argument("--lr", type=float, default=1e-4)
-    # parser.add_argument("--epochs", type=int, default=10)
-    # parser.add_argument("--batch_size", type=int, default=8)
-    # parser.add_argument("--validate_after_each_step", type=bool, default=False)
-    # parser.add_argument("--world_size", type=int, default=1)
-    # parser.add_argument("--gradient_clip_val", type=float, default=1.0)
-    # args = parser.parse_args()
+
     world_size = 2
     if world_size > 1:
         mp.spawn(main, args=(world_size,), nprocs=world_size, join=True)
