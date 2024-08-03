@@ -59,6 +59,7 @@ class TrainerDDP:
 
         return loss.item()
 
+    @torch.no_grad()
     def validation_step(self, batch):
         self.model.eval()
         pixel_values, labels, answers = batch
