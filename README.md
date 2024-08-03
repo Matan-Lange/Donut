@@ -11,7 +11,8 @@ python-bidi==0.4.2<br>
 numpy==1.26.0<br>
 pillow==9.4.0<br>
 mlflow<br>
-dicttoxml
+dicttoxml<br>
+zss
 
 
 
