@@ -152,10 +152,10 @@ def main(rank,
     setup(rank, world_size)
     processor, model = load_he_model()
 
-    data_path = r'/data/01/users/lange_m_new/projects/Donut-main/Donut-main/synthdog/outputs/SynthDoG_he'
-    train_dataset = DonutDatasetFineTune(os.path.join(data_path, 'train'), max_length=768, processor=processor)
 
-    val_dataset = DonutDatasetFineTune(os.path.join(data_path, 'validation'), max_length=768, processor=processor)
+    train_dataset = DonutDatasetFineTune(os.path.join(data_set_path, 'train'), max_length=768, processor=processor)
+
+    val_dataset = DonutDatasetFineTune(os.path.join(data_set_path, 'validation'), max_length=768, processor=processor)
 
     train_sampler = DistributedSampler(train_dataset, num_replicas=world_size, rank=rank)
     train_dataloader = DataLoader(train_dataset, batch_size=4, sampler=train_sampler)
