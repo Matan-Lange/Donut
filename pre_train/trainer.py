@@ -88,7 +88,7 @@ class TrainerDDP:
 
         predictions = []
         for seq in self.processor.tokenizer.batch_decode(outputs.sequences):
-            seq = seq.replace(self.processor.tokenizer.eos_token, "").replace(self.processor.tokenizer.pad_token, "").replace(processor.tokenizer.bos_token, "")
+            seq = seq.replace(self.processor.tokenizer.eos_token, "").replace(self.processor.tokenizer.pad_token, "").replace(self.processor.tokenizer.bos_token, "")
             seq = re.sub(r"<.*?>", "", seq, count=1).strip()
             predictions.append(seq)
 
