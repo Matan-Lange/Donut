@@ -67,10 +67,15 @@ class TrainerDDP:
         batch_size = pixel_values.shape[0]
         # In PyTorch DDP setup, self.model is wrapped by DistributedDataParallel,
         # so the actual model is accessible through self.model.module.
-        decoder_input_ids = torch.full((batch_size, 1), self.model.module.config.decoder_start_token_id,
-                                       device=self.device)
+       if self.world_size > 1:
+            model = self.model.module
+        else:
+            model = self.model
 
-        outputs = self.model.module.generate(pixel_values,
+        decoder_input_ids = torch.full((batch_size, 1), model.config.decoder_start_token_id,
+                                       device=self.device)
+        
+        outputs = model.generate(pixel_values,
                                              decoder_input_ids=decoder_input_ids,
                                              max_length=self.config.get("max_length", 768),
                                              early_stopping=True,
