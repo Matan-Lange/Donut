@@ -7,6 +7,8 @@ import re
 import os
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
+from dataset import DonutDatasetFineTune
+from model import load_he_model
 
 
 class TrainerDDP:
@@ -67,10 +69,15 @@ class TrainerDDP:
         batch_size = pixel_values.shape[0]
         # In PyTorch DDP setup, self.model is wrapped by DistributedDataParallel,
         # so the actual model is accessible through self.model.module.
-        decoder_input_ids = torch.full((batch_size, 1), self.model.module.config.decoder_start_token_id,
-                                       device=self.device)
+        if self.world_size > 1:
+            model = self.model.module
+        else:
+            model = self.model
 
-        outputs = self.model.module.generate(pixel_values,
+        decoder_input_ids = torch.full((batch_size, 1), model.config.decoder_start_token_id,
+                                       device=self.device)
+        
+        outputs = model.generate(pixel_values,
                                              decoder_input_ids=decoder_input_ids,
                                              max_length=self.config.get("max_length", 768),
                                              early_stopping=True,
@@ -136,11 +143,12 @@ def cleanup():
     dist.destroy_process_group()
 
 
-from dataset import DonutDatasetFineTune
-from model import load_he_model
 
-
-def main(rank, world_size):
+def main(rank, 
+         world_size,
+         repo_name,
+         data_set_path
+        ):
     setup(rank, world_size)
     processor, model = load_he_model()
 
@@ -160,7 +168,7 @@ def main(rank, world_size):
         "verbose": True,
         "gradient_clip_val": 1.0,
         'experiment_name': 'fine_tune_donut',
-        "mlflow_tracking_uri": ''  # add tracking uri here
+        "mlflow_tracking_uri": 'sqlite:///mlflow.db'  # add tracking uri here
 
     }
 
