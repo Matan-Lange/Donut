@@ -129,7 +129,7 @@ class Invoice:
         vat_amount = round(total_amount * self.vat_percentage, 2)
         self.total_with_vat = total_amount + vat_amount
         vat_text = reverse_hebrew_text(f"מע\"מ ({self.vat_percentage * 100:.0f}%): {vat_amount:.2f} ש\"ח")
-        total_text = reverse_hebrew_text(f"סה\"כ לתשלום כולל מע\"מ: {self.total_with_vat:.2f} ש\"ח")
+        total_text = f"סה\"כ לתשלום כולל מע\"מ: {str(round(self.total_with_vat,2))[::-1]} ש\"ח" [::-1]
         draw.text((width - padding, current_height), vat_text, fill="black", font=self.bold_font, anchor="ra")
         current_height += self.font.getbbox("hg")[3] + 10
         draw.text((width - padding, current_height), total_text, fill="black", font=self.bold_font, anchor="ra")
@@ -564,3 +564,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     generator = InvoiceGenerator(args.total_invoices, args.output_directory)
     generator.generate_invoices()
+
