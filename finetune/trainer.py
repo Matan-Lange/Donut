@@ -102,7 +102,7 @@ class TrainerDDP:
             # Remove spaces between tags
             answer = re.sub(r'>\s+<', '><', answer.replace('\n',""))
             #remove root tag from label 
-            answer = answer.replace("<root>","").replace("</root">,"")
+            answer = answer.replace("<root>","").replace("</root>","")
             
             pred = re.sub(r'>\s+<', '><', pred.replace('\n',""))  # Remove spaces between tags
             pred = re.sub(r'>(\s+)', '>', pred)  # Remove spaces after opening tag
