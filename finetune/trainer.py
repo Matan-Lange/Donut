@@ -103,6 +103,9 @@ class TrainerDDP:
             answer = re.sub(r'>\s+<', '><', answer.replace('\n',""))
             pred = re.sub(r'>\s+<', '><', pred.replace('\n',""))
 
+            #remove root tag from label 
+            answer = answer.replace("<root>","").replace("</root">,"")
+
             score = edit_distance(pred, answer) / max(len(pred), len(answer))
             scores.append(score)
 
