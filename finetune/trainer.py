@@ -99,12 +99,15 @@ class TrainerDDP:
         for pred, answer in zip(predictions, answers):
             answer = answer.replace(self.processor.tokenizer.eos_token, "")
 
-            #remove spaces between tags(special tokens) & remove break lines
+            # Remove spaces between tags
             answer = re.sub(r'>\s+<', '><', answer.replace('\n',""))
-            pred = re.sub(r'>\s+<', '><', pred.replace('\n',""))
-
             #remove root tag from label 
             answer = answer.replace("<root>","").replace("</root">,"")
+            
+            pred = re.sub(r'>\s+<', '><', pred.replace('\n',""))  # Remove spaces between tags
+            pred = re.sub(r'>(\s+)', '>', pred)  # Remove spaces after opening tag
+            pred = re.sub(r'(\s+)<', '<', pred)  # Remove spaces before closing tag
+
 
             score = edit_distance(pred, answer) / max(len(pred), len(answer))
             scores.append(score)
