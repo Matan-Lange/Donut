@@ -31,7 +31,7 @@ To initiate pre-training, run the ```pretrain/trainer.py``` file after creating 
 Ensure that your data is structured according to the DonutDataset class. An example of the data format can be found in the directory.
 
 
-## Snythtic invoice generation
+## Snythtic invoice generation (information extraction dataset)
 <b>snythtic invoice generation</b><br>
 run ```python finetune/generate_invoices.py --total_invoices 1000 --output_directory path/to/dir``` <br>
 This is and example of data that can be used for finetuning. The data used for experiments is located in this directory ```finetune/data```
