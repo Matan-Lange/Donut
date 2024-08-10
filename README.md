@@ -37,6 +37,11 @@ run ```python finetune/generate_invoices.py --total_invoices 1000 --output_direc
 This is and example of data that can be used for finetuning. The data used for experiments is located in this directory ```finetune/data```
 
 
+## Fine-tuning HeDonut
+This code is designed for information extraction tasks. It can be easily adapted for QA and document classification tasks.<br>
+To start the fine-tuning process, run ```finetune/trainer.py```. You can modify the hyperparameters within the main function of the file.
+
+
 
 
 
