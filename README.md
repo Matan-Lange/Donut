@@ -27,12 +27,14 @@ For more detailed usage instructions and examples, please refer to the original 
 https://github.com/clovaai/synthtiger/blob/master/README.md
 
 ## Pre-Training HeDonut 
+To initiate pre-training, run the pretrain/trainer.py file after creating the dataset. You can modify the hyperparameters within the main file as needed.<br>
+Ensure that your data is structured according to the DonutDataset class. An example of the data format can be found in the directory.
 
 
-
-## FineTuning document parsing 
+## Snythtic invoice generation
 <b>snythtic invoice generation</b><br>
-run ```python finetune/generate_invoices.py --total_invoices 1000 --output_directory path/to/dir```
+run ```python finetune/generate_invoices.py --total_invoices 1000 --output_directory path/to/dir``` <br>
+This is and example of data that can be used for finetuning. The data used for experiments is located in this directory ```finetune/data```
 
 
 
