@@ -27,7 +27,7 @@ For more detailed usage instructions and examples, please refer to the original 
 https://github.com/clovaai/synthtiger/blob/master/README.md
 
 ## Pre-Training HeDonut 
-To initiate pre-training, run the ```pretrain/trainer.py``` file after creating the dataset. You can modify the hyperparameters within the main file as needed.<br>
+To initiate pre-training, run the ```pretrain/trainer.py``` file after creating the dataset. You can modify the hyperparameters within the main function as needed.<br>
 Ensure that your data is structured according to the DonutDataset class. An example of the data format can be found in the directory.
 
 
